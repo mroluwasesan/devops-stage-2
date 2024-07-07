@@ -1,26 +1,27 @@
-# Base image for Python environment
-FROM python:3.9
 
-# Set working directory
+# Use an official Python runtime as a parent image
+FROM python:3.10-slim
+
+# Set the working directory in the container
 WORKDIR /app
 
-COPY prestart.sh .
+# Install Poetry
+RUN pip install poetry
 
-# Install poetry
-RUN curl -sSL https://install.python-poetry.org | python3 -
+# Copy only the necessary files for dependency installation
+COPY pyproject.toml poetry.lock ./
 
+# Install dependencies using Poetry
+RUN poetry config virtualenvs.create false && poetry install --no-dev
 
-# Install dependencies 
-RUN pip poetry install
-
-#Set up the database with the necessary tables
-RUN poetry run bash ./prestart.sh
-
-# Copy your application code
+# Copy the rest of the application code
 COPY . .
 
-# Expose port (adjust if needed)
-EXPOSE 65069
+# Expose port 80 for the application
+EXPOSE 8000
 
-# Command to run the application (adjust based on your FastAPI app)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "65069", "--reload"]
+# Set Python path to include the 'app' directory
+ENV PYTHONPATH "${PYTHONPATH}:/app"
+
+# Command to run the FastAPI application using Uvicorn
+#CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
