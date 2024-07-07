@@ -4,32 +4,6 @@ version: "3.8"
 # define the services/containers to be run
 services:
 
-  traefik:
-    image: traefik:v3.0
-    command:
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--entrypoints.websecure.http.tls.certresolver=myresolver"
-      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
-      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-      - "--certificatesresolvers.myresolver.acme.email=your-email@example.com"
-      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-
-    ports:
-      - "80:80"
-      - "443:443"
-      - "8091:8080"  # Traefik dashboard (changed to 8091 to avoid conflict)
-    volumes:
-        - "/var/run/docker.sock:/var/run/docker.sock"
-        - "./letsencrypt:/letsencrypt"
-
-    networks:
-      - app-network
-
   # define the frontend service
   # we can use any name for the service. A standard naming convention is to use "web" for the frontend
   web:
@@ -43,14 +17,9 @@ services:
     build: ./frontend
 
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`fasthng.mooo.com`, `www.fasthng.mooo.com`)"
-      - "traefik.http.routers.frontend.priority=1"
-      - "traefik.http.middlewares.redirect-www.redirectregex.regex=^https://www\\.(.*)"
-      - "traefik.http.middlewares.redirect-www.redirectregex.replacement=https://$$1"
-      - "traefik.http.middlewares.redirect-www.redirectregex.permanent=true"
-      - "traefik.http.routers.frontend.middlewares=redirect-www"
-      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      - "nginx.host=fasthng.mooo.com"
+      - "nginx.reverse_proxy=true"
+      - "nginx.port=80"
       
     # specify the ports to expose for the web service
     # the first number is the port on the host machine
@@ -74,16 +43,10 @@ services:
 
     # specify the build context for the api service
     build: ./backend
-  
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`fasthng.mooo.com`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.api.priority=2"
-      - "traefik.http.routers.docs.rule=Host(`fasthng.mooo.com`) && PathPrefix(`/docs`)"
-      - "traefik.http.routers.docs.priority=2"
-      - "traefik.http.routers.redoc.rule=Host(`fasthng.mooo.com`) && PathPrefix(`/redoc`)"
-      - "traefik.http.routers.redoc.priority=2"
-      - "traefik.http.services.api.loadbalancer.server.port=8000"
+      - "nginx.host=fasthng.mooo.com"
+      - "nginx.reverse_proxy=true"
+      - "nginx.port=8000"
 
     # specify the ports to expose for the api service
     # the first number is the port on the host machine
@@ -142,29 +105,34 @@ services:
     ports:
       - 8080:8080
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.adminer.rule=Host(`db.fasthng.mooo.com`)"
-      - "traefik.http.services.adminer.loadbalancer.server.port=8080"
-
+      - "nginx.host=db.fasthng.mooo.com"
+      - "nginx.reverse_proxy=true"
+      - "nginx.port=8080"
     networks:
       - app-network
 
-  proxy:
+  nginx-proxy-manager:
     image: jc21/nginx-proxy-manager:latest
+
     ports:
-      - 8090:80
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.proxy.rule=Host(`proxy.fasthng.mooo.com`)"
-      - "traefik.http.services.proxy.loadbalancer.server.port=80"
+      - 80:80
+      - 81:81  # Nginx Proxy Manager admin interface
+      - 443:443
+    
+    environment:
+      DB_SQLITE_FILE: "/data/database.sqlite"
+
     volumes:
-      - ./data:/data
-      - ./letsencrypt:/etc/letsencrypt
+      - nginx_proxy_manager_data:/data
+      - nginx_proxy_manager_letsencrypt:/etc/letsencrypt
     networks:
       - app-network
 # define the volumes to be used by the services
+
 volumes:
   postgres_data:
+  nginx_proxy_manager_data:
+  nginx_proxy_manager_letsencrypt:
 
 
 networks:
