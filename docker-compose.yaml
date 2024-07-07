@@ -116,7 +116,7 @@ services:
 
     ports:
       - 80:80
-      - 81:81  # Nginx Proxy Manager admin interface
+      - 8090:81  # Nginx Proxy Manager admin interface
       - 443:443
     
     environment:
