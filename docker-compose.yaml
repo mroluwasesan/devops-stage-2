@@ -19,7 +19,7 @@ services:
     labels:
       - "nginx.host=fasthng.mooo.com"
       - "nginx.reverse_proxy=true"
-      - "nginx.port=80"
+      - "nginx.port=4173"
       
     # specify the ports to expose for the web service
     # the first number is the port on the host machine
