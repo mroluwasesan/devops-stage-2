@@ -89,7 +89,7 @@ services:
 
     # specify the build context for the api service
     build: ./backend
-    
+  
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.api.rule=Host(`fasthng.mooo.com`) && PathPrefix(`/api`)"
