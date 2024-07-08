@@ -1,147 +1,66 @@
-# specify the version of docker-compose
-version: "3.8"
+version: "3.7"
 
-# define the services/containers to be run
 services:
-
-  # define the frontend service
-  # we can use any name for the service. A standard naming convention is to use "web" for the frontend
-  web:
-    # we use depends_on to specify that service depends on another service
-    # in this case, we specify that the web depends on the api service
-    # this means that the api service will be started before the web service
-    depends_on: 
-      - api
-    # specify the build context for the web service
-    # this is the directory where the Dockerfile for the web service is located
-    build: ./frontend
-
-    labels:
-      - "nginx.host=fasthng.mooo.com"
-      - "nginx.reverse_proxy=true"
-      - "nginx.port=5173"
-      
-    # specify the ports to expose for the web service
-    # the first number is the port on the host machine
-    # the second number is the port inside the container
-    # ports:
-    #   - 80:80
-    # specify the environment variables for the web service
-    # these environment variables will be available inside the container
-    environment:
-      VITE_API_URL: http://fasthng.mooo.com
-      #VITE_API_URL: http://localhost:api
-
-    networks:
-      - app-network
-
-  # define the api service/container
-  api: 
-    # api service depends on the db service so the db service will be started before the api service
-    depends_on: 
+  backend:
+    build:
+      context: ./backend
+    container_name: backend
+    env_file:
+      - ./backend/.env
+    depends_on:
       - db
 
-    # specify the build context for the api service
-    build: ./backend
-    labels:
-      - "nginx.host=fasthng.mooo.com"
-      - "nginx.reverse_proxy=true"
-      - "nginx.port=8000"
-
-    # specify the ports to expose for the api service
-    # the first number is the port on the host machine
-    # the second number is the port inside the container
-    # ports: 
-    #   - 8000:8000
-
-    # specify environment variables for the api service
-    # for demo purposes, we're using a local mongodb instance
-    environment: 
-      POSTGRES_SERVER: db
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: postgres
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: password
-
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend
     volumes:
-      - ./backend:/app
+      - ./frontend/nginx.conf:/etc/nginx/nginx.conf
+    env_file:
+      - ./frontend/.env
 
-    networks:
-      - app-network
-      #The healthcheck is added to the db service to check if PostgreSQL is ready to accept connections using pg_isready -U ap
-    entrypoint: >
-      sh -c "poetry run bash ./prestart.sh && poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000"
-
-  # define the db service
-  db:
-    # specify the image to use for the db service from docker hub. If we have a custom image, we can specify that in this format
-    # In the above two services, we're using the build context to build the image for the service from the Dockerfile so we specify the image as "build: ./frontend" or "build: ./backend".
-    # but for the db service, we're using the image from docker hub so we specify the image as "image: mongo:latest"
-    # you can find the image name and tag for mongodb from docker hub here: https://hub.docker.com/_/mongo
-    image: postgres:13
-
-    # specify the ports to expose for the db service
-    # generally, we do this in api service using mongodb atlas. But for demo purposes, we're using a local mongodb instance
-    # usually, mongodb runs on port 27017. So we're exposing the port 27017 on the host machine and mapping it to the port 27017 inside the container
-    
-    environment:
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: postgres
-
+  nginx:
+    image: nginx:latest
+    container_name: nginx
     ports:
-      - 5432:5432
-
-    # specify the volumes to mount for the db service
-    # we're mounting the volume named "anime" inside the container at /data/db directory
-    # this is done so that the data inside the mongodb container is persisted even if the container is stopped
+      - "80:80"
+      - "443:443"
     volumes:
-       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - app-network
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - /etc/letsencrypt:/etc/letsencrypt
+
+  db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
 
   adminer:
-    image: adminer
+    image: adminer:latest
+    container_name: adminer
     ports:
-      - 8080:8080
-    labels:
-      - "nginx.host=db.fasthng.mooo.com"
-      - "nginx.reverse_proxy=true"
-      - "nginx.port=8080"
-    networks:
-      - app-network
-
-  nginx-proxy-manager:
-    image: jc21/nginx-proxy-manager:2.11.2
-
-    depends_on:
-      - web
-      - api
-      - db
-      - adminer
-
-    ports:
-      - 80:80
-      - 8090:81  # Nginx Proxy Manager admin interface
-      - 443:443
-    
+      - "8080:8080"
     environment:
-      DB_SQLITE_FILE: "/data/database.sqlite"
+      - ADMINER_DEFAULT_SERVER=db
 
+  proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: proxy-manager
+    ports:
+      - "81:81" # Management UI
+      - "8090:8090" # HTTP port
+      - "8443:8443" # HTTPS port
     volumes:
-      - nginx_proxy_manager_data:/data
-      - nginx_proxy_manager_letsencrypt:/etc/letsencrypt
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - app-network
-# define the volumes to be used by the services
+      - npm-data:/data
+      - npm-letsencrypt:/etc/letsencrypt
 
 volumes:
-  postgres_data:
-  nginx_proxy_manager_data:
-  nginx_proxy_manager_letsencrypt:
-
-
-networks:
-  app-network:
-    driver: bridge
+  db-data:
+  npm-data:
+  npm-letsencrypt:
