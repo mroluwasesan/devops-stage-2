@@ -3,7 +3,7 @@ name: Deploy Docker Compose to VM
 on:
   push:
     branches:
-      - main # or any branch you want to trigger the deployment
+      - deploy # or any branch you want to trigger the deployment
 
 jobs:
   deploy:
