@@ -27,7 +27,7 @@ jobs:
           password: ${{ secrets.PASSWORD }}
           port: ${{ secrets.PORT }}
           script: |
-            cd devops-stage-2/docker-compose.yml
+            cd devops-stage-2/
             docker-compose down
             docker-compose pull
             docker-compose up -d
