@@ -27,7 +27,6 @@ jobs:
           password: ${{ secrets.PASSWORD }}
           port: ${{ secrets.PORT }}
           script: |
-            cd /path/to/your/docker-compose-directory
             docker-compose down
             docker-compose pull
             docker-compose up -d
